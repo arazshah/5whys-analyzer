@@ -7,9 +7,9 @@ from dotenv import load_dotenv
 import os
 
 from app.models.schemas import (
-    StartAnalysisRequest, AnswerRequest, 
+    StartAnalysisRequest, AnswerRequest,
     AnalysisSession, WhyStep, AnalysisStatus,
-    NextQuestionResponse, FinalResultResponse
+    NextQuestionResponse, FinalResultResponse, AIConfig
 )
 from app.services.ai_service import AIService
 
