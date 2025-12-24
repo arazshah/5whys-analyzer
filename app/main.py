@@ -46,7 +46,17 @@ async def start_analysis(request: StartAnalysisRequest):
     """شروع تحلیل جدید"""
     try:
         # ایجاد سرویس AI با استفاده از تنظیمات پیش‌فرض
-        ai_service = AIService(get_default_ai_config())
+        config = get_default_ai_config()
+        
+        # بررسی صحت تنظیمات OpenRouter
+        if "openrouter" in config.base_url.lower():
+            if not validate_openrouter_config(config):
+                raise HTTPException(
+                    status_code=400,
+                    detail="تنظیمات OpenRouter نامعتبر است. لطفاً کلید API و مدل را بررسی کنید."
+                )
+        
+        ai_service = AIService(config)
         
         # تولید اولین سوال
         first_question = await ai_service.generate_first_why(request.problem)
@@ -82,6 +92,22 @@ def get_default_ai_config():
     )
 
 
+def validate_openrouter_config(config: AIConfig) -> bool:
+    """بررسی صحت تنظیمات OpenRouter"""
+    if "openrouter" not in config.base_url.lower():
+        return True
+    
+    # بررسی کلید API
+    if not config.api_key or len(config.api_key) < 10:
+        return False
+    
+    # بررسی مدل
+    if not config.model_id:
+        return False
+    
+    return True
+
+
 @app.post("/api/answer")
 async def submit_answer(request: AnswerRequest):
     """ارسال پاسخ و دریافت سوال بعدی"""
@@ -95,7 +121,17 @@ async def submit_answer(request: AnswerRequest):
     
     try:
         # استفاده از تنظیمات پیش‌فرض به جای تنظیمات ارسال شده توسط کاربر
-        ai_service = AIService(get_default_ai_config())
+        config = get_default_ai_config()
+        
+        # بررسی صحت تنظیمات OpenRouter
+        if "openrouter" in config.base_url.lower():
+            if not validate_openrouter_config(config):
+                raise HTTPException(
+                    status_code=400,
+                    detail="تنظیمات OpenRouter نامعتبر است. لطفاً کلید API و مدل را بررسی کنید."
+                )
+        
+        ai_service = AIService(config)
         
         # ذخیره پاسخ فعلی
         current_step_idx = session.current_step - 1

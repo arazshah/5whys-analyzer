@@ -17,6 +17,22 @@ def get_default_ai_config() -> AIConfig:
     )
 
 
+def validate_openrouter_config(config: AIConfig) -> bool:
+    """بررسی صحت تنظیمات OpenRouter"""
+    if "openrouter" not in config.base_url.lower():
+        return True
+    
+    # بررسی کلید API
+    if not config.api_key or len(config.api_key) < 10:
+        return False
+    
+    # بررسی مدل
+    if not config.model_id:
+        return False
+    
+    return True
+
+
 class AIService:
     """سرویس ارتباط با AI"""
     
@@ -33,6 +49,11 @@ class AIService:
             "Content-Type": "application/json"
         }
         
+        # برای OpenRouter از HTTP Referrer header استفاده می‌کنیم
+        if "openrouter" in self.base_url.lower():
+            headers["HTTP-Referer"] = "https://github.com/your-repo/5whys-analyzer"
+            headers["X-Title"] = "5 Whys Analyzer"
+        
         payload = {
             "model": self.model_id,
             "messages": messages,
@@ -40,12 +61,24 @@ class AIService:
             "max_tokens": 1000
         }
         
+        # برای OpenRouter ممکن است نیاز به تنظیمات اضافی باشد
+        if "openrouter" in self.base_url.lower():
+            # برخی مدل‌های OpenRouter ممکن است نیاز به تنظیمات خاص داشته باشند
+            pass
+        
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.post(
                 f"{self.base_url}/chat/completions",
                 headers=headers,
                 json=payload
             )
+            
+            # برای خطاهای احتمالی OpenRouter
+            if response.status_code == 401:
+                raise Exception("خطای احراز هویت OpenRouter. لطفاً کلید API را بررسی کنید.")
+            elif response.status_code == 400:
+                raise Exception("درخواست نامعتبر به OpenRouter. مدل ممکن است موجود نباشد.")
+            
             response.raise_for_status()
             data = response.json()
             return data["choices"][0]["message"]["content"]
