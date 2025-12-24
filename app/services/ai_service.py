@@ -33,6 +33,77 @@ def validate_openrouter_config(config: AIConfig) -> bool:
     return True
 
 
+def validate_api_key(api_key: str) -> bool:
+    """بررسی صحت کلید API"""
+    if not api_key:
+        return False
+    
+    # بررسی اینکه کلید API واقعی باشد (نه مقدار پیش‌فرض)
+    if api_key == "your_openai_api_key_here":
+        return False
+    
+    # بررسی طول کلید
+    if len(api_key) < 20:
+        return False
+    
+    return True
+
+
+def get_openrouter_headers(api_key: str) -> dict:
+    """دریافت هدرهای مورد نیاز برای OpenRouter"""
+    return {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "http://localhost:8000",
+        "X-Title": "5 Whys Analyzer"
+    }
+
+
+def test_openrouter_connection(api_key: str, base_url: str, model_id: str) -> bool:
+    """تست اتصال به OpenRouter"""
+    import httpx
+    import asyncio
+    
+    async def test():
+        headers = get_openrouter_headers(api_key)
+        payload = {
+            "model": model_id,
+            "messages": [{"role": "user", "content": "test"}],
+            "max_tokens": 1
+        }
+        
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                response = await client.post(
+                    f"{base_url}/chat/completions",
+                    headers=headers,
+                    json=payload
+                )
+                print(f"OpenRouter test response: {response.status_code}")
+                print(f"OpenRouter test response text: {response.text}")
+                return response.status_code == 200
+        except Exception as e:
+            print(f"OpenRouter test failed: {e}")
+            return False
+    
+    try:
+        return asyncio.run(test())
+    except Exception as e:
+        print(f"OpenRouter test exception: {e}")
+        return False
+
+
+def get_openrouter_model_list() -> list:
+    """دریافت لیست مدل‌های OpenRouter"""
+    return [
+        "openai/gpt-3.5-turbo",
+        "openai/gpt-4",
+        "anthropic/claude-3-sonnet",
+        "google/gemini-pro",
+        "xiaomi/mimo-v2-flash:free"
+    ]
+
+
 class AIService:
     """سرویس ارتباط با AI"""
     
@@ -44,15 +115,18 @@ class AIService:
     
     async def _call_ai(self, messages: list) -> str:
         """فراخوانی API هوش مصنوعی"""
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-        }
+        # بررسی صحت کلید API
+        if not validate_api_key(self.api_key):
+            raise Exception("کلید API نامعتبر است. لطفاً یک کلید API معتبر وارد کنید.")
         
-        # برای OpenRouter از HTTP Referrer header استفاده می‌کنیم
+        # برای OpenRouter از هدرهای خاص استفاده می‌کنیم
         if "openrouter" in self.base_url.lower():
-            headers["HTTP-Referer"] = "https://github.com/your-repo/5whys-analyzer"
-            headers["X-Title"] = "5 Whys Analyzer"
+            headers = get_openrouter_headers(self.api_key)
+        else:
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
         
         payload = {
             "model": self.model_id,
@@ -75,9 +149,15 @@ class AIService:
             
             # برای خطاهای احتمالی OpenRouter
             if response.status_code == 401:
+                print(f"OpenRouter 401 error: {response.text}")
                 raise Exception("خطای احراز هویت OpenRouter. لطفاً کلید API را بررسی کنید.")
             elif response.status_code == 400:
-                raise Exception("درخواست نامعتبر به OpenRouter. مدل ممکن است موجود نباشد.")
+                error_data = response.json()
+                print(f"OpenRouter 400 error: {error_data}")
+                raise Exception(f"درخواست نامعتبر به OpenRouter: {error_data.get('error', {}).get('message', 'Unknown error')}")
+            elif response.status_code == 429:
+                print(f"OpenRouter 429 error: {response.text}")
+                raise Exception("محدودیت نرخ درخواست به OpenRouter. لطفاً کمی صبر کنید.")
             
             response.raise_for_status()
             data = response.json()

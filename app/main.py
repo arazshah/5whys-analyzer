@@ -23,6 +23,16 @@ DEFAULT_AI_CONFIG = {
     "model_id": os.getenv("AI_MODEL_ID", "gpt-3.5-turbo")
 }
 
+
+# لیست مدل‌های پشتیبانی شده
+SUPPORTED_MODELS = [
+    "gpt-3.5-turbo",
+    "gpt-4",
+    "claude-3-sonnet",
+    "gemini-pro",
+    "xiaomi/mimo-v2-flash:free"
+]
+
 app = FastAPI(
     title="5 Whys Root Cause Analyzer",
     description="سیستم ریشه‌یابی مشکلات با تکنیک 5 چرا",
@@ -54,6 +64,14 @@ async def start_analysis(request: StartAnalysisRequest):
                 raise HTTPException(
                     status_code=400,
                     detail="تنظیمات OpenRouter نامعتبر است. لطفاً کلید API و مدل را بررسی کنید."
+                )
+            
+            # تست اتصال به OpenRouter
+            from app.services.ai_service import test_openrouter_connection
+            if not test_openrouter_connection(config.api_key, config.base_url, config.model_id):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"اتصال به OpenRouter برقرار نیست. مدل '{config.model_id}' ممکن است موجود نباشد. لطفاً از مدل‌های پشتیبانی شده استفاده کنید: {', '.join(SUPPORTED_MODELS)}"
                 )
         
         ai_service = AIService(config)
@@ -129,6 +147,14 @@ async def submit_answer(request: AnswerRequest):
                 raise HTTPException(
                     status_code=400,
                     detail="تنظیمات OpenRouter نامعتبر است. لطفاً کلید API و مدل را بررسی کنید."
+                )
+            
+            # تست اتصال به OpenRouter
+            from app.services.ai_service import test_openrouter_connection
+            if not test_openrouter_connection(config.api_key, config.base_url, config.model_id):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"اتصال به OpenRouter برقرار نیست. مدل '{config.model_id}' ممکن است موجود نباشد. لطفاً از مدل‌های پشتیبانی شده استفاده کنید: {', '.join(SUPPORTED_MODELS)}"
                 )
         
         ai_service = AIService(config)
