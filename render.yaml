@@ -3,9 +3,20 @@ services:
     name: 5whys-analyzer
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 4 --worker-class uvicorn.workers.UvicornWorker app.main:app
     envVars:
       - key: PYTHON_VERSION
         value: "3.11"
+      - key: PORT
+        value: "10000"
+      - key: PYTHONUNBUFFERED
+        value: "1"
     plan: free
     healthCheckPath: /health
+    env:
+      - key: AI_BASE_URL
+        value: "https://ai.liara.ir/api/68f7a6d4117eafa29010df94/v1"
+      - key: AI_MODEL_ID
+        value: "qwen/qwen3-32b"
+      - key: AI_API_KEY
+        fromDatabaseSecret: AI_API_KEY

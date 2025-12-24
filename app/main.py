@@ -1,10 +1,16 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 import uuid
 from typing import Dict
 from dotenv import load_dotenv
 import os
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 from app.models.schemas import (
     StartAnalysisRequest, AnswerRequest,
@@ -38,6 +44,24 @@ app = FastAPI(
     description="سیستم ریشه‌یابی مشکلات با تکنیک 5 چرا",
     version="1.0.0"
 )
+
+# Add CORS middleware for better frontend integration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, replace with specific domains
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Global exception handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Global exception: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "خطای سرور. لطفاً دوباره تلاش کنید."}
+    )
 
 # مسیر فایل‌های استاتیک
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -260,7 +284,30 @@ async def delete_session(session_id: str):
     raise HTTPException(status_code=404, detail="جلسه یافت نشد")
 
 
-# Health check برای GitHub Actions
+# Health check برای Docker و Render
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "sessions_count": len(sessions)}
+    """Health check endpoint for Docker and deployment platforms"""
+    return {
+        "status": "healthy",
+        "sessions_count": len(sessions),
+        "version": "1.0.0",
+        "ai_configured": bool(os.getenv("AI_API_KEY", ""))
+    }
+
+# Root endpoint for API documentation
+@app.get("/api")
+async def api_info():
+    """API information endpoint"""
+    return {
+        "name": "5 Whys Root Cause Analyzer API",
+        "version": "1.0.0",
+        "endpoints": {
+            "start": "POST /api/start",
+            "answer": "POST /api/answer",
+            "session": "GET /api/session/{session_id}",
+            "delete": "DELETE /api/session/{session_id}",
+            "health": "GET /health"
+        },
+        "documentation": "https://github.com/your-repo/5whys-analyzer"
+    }
