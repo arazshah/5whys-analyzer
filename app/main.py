@@ -11,7 +11,7 @@ from app.models.schemas import (
     AnalysisSession, WhyStep, AnalysisStatus,
     NextQuestionResponse, FinalResultResponse, AIConfig
 )
-from app.services.ai_service import AIService
+from app.services.ai_service import AIService, test_openrouter_connection
 
 # Load environment variables
 load_dotenv()
@@ -38,6 +38,9 @@ app = FastAPI(
     description="سیستم ریشه‌یابی مشکلات با تکنیک 5 چرا",
     version="1.0.0"
 )
+
+# مسیر فایل‌های استاتیک
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # ذخیره موقت جلسات (در حافظه)
 sessions: Dict[str, AnalysisSession] = {}
@@ -67,11 +70,16 @@ async def start_analysis(request: StartAnalysisRequest):
                 )
             
             # تست اتصال به OpenRouter
-            from app.services.ai_service import test_openrouter_connection
-            if not test_openrouter_connection(config.api_key, config.base_url, config.model_id):
+            try:
+                if not await test_openrouter_connection(config.api_key, config.base_url, config.model_id):
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"اتصال به OpenRouter برقرار نیست. مدل '{config.model_id}' ممکن است موجود نباشد یا کلید API نامعتبر باشد. لطفاً از مدل‌های پشتیبانی شده استفاده کنید: {', '.join(SUPPORTED_MODELS)}"
+                    )
+            except Exception as e:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"اتصال به OpenRouter برقرار نیست. مدل '{config.model_id}' ممکن است موجود نباشد. لطفاً از مدل‌های پشتیبانی شده استفاده کنید: {', '.join(SUPPORTED_MODELS)}"
+                    detail=f"خطا در اتصال به OpenRouter: {str(e)}"
                 )
         
         ai_service = AIService(config)
@@ -98,6 +106,8 @@ async def start_analysis(request: StartAnalysisRequest):
         )
         
     except Exception as e:
+        print(f"Error in start_analysis: {str(e)}")
+        print(f"Config: {config}")
         raise HTTPException(status_code=500, detail=f"خطا در اتصال به AI: {str(e)}")
 
 
@@ -150,8 +160,7 @@ async def submit_answer(request: AnswerRequest):
                 )
             
             # تست اتصال به OpenRouter
-            from app.services.ai_service import test_openrouter_connection
-            if not test_openrouter_connection(config.api_key, config.base_url, config.model_id):
+            if not await test_openrouter_connection(config.api_key, config.base_url, config.model_id):
                 raise HTTPException(
                     status_code=400,
                     detail=f"اتصال به OpenRouter برقرار نیست. مدل '{config.model_id}' ممکن است موجود نباشد. لطفاً از مدل‌های پشتیبانی شده استفاده کنید: {', '.join(SUPPORTED_MODELS)}"
@@ -228,6 +237,8 @@ async def submit_answer(request: AnswerRequest):
         )
         
     except Exception as e:
+        print(f"Error in submit_answer: {str(e)}")
+        print(f"Config: {config}")
         raise HTTPException(status_code=500, detail=f"خطا: {str(e)}")
 
 

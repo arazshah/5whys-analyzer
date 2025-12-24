@@ -55,41 +55,50 @@ def get_openrouter_headers(api_key: str) -> dict:
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
         "HTTP-Referer": "http://localhost:8000",
-        "X-Title": "5 Whys Analyzer"
+        "X-Title": "5 Whys Analyzer",
+        "User-Agent": "5-Whys-Analyzer/1.0"
     }
 
 
-def test_openrouter_connection(api_key: str, base_url: str, model_id: str) -> bool:
+async def test_openrouter_connection(api_key: str, base_url: str, model_id: str) -> bool:
     """تست اتصال به OpenRouter"""
     import httpx
-    import asyncio
     
-    async def test():
-        headers = get_openrouter_headers(api_key)
-        payload = {
-            "model": model_id,
-            "messages": [{"role": "user", "content": "test"}],
-            "max_tokens": 1
-        }
-        
-        try:
-            async with httpx.AsyncClient(timeout=10) as client:
-                response = await client.post(
-                    f"{base_url}/chat/completions",
-                    headers=headers,
-                    json=payload
-                )
-                print(f"OpenRouter test response: {response.status_code}")
-                print(f"OpenRouter test response text: {response.text}")
-                return response.status_code == 200
-        except Exception as e:
-            print(f"OpenRouter test failed: {e}")
-            return False
+    headers = get_openrouter_headers(api_key)
+    payload = {
+        "model": model_id,
+        "messages": [{"role": "user", "content": "test"}],
+        "max_tokens": 1
+    }
     
     try:
-        return asyncio.run(test())
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.post(
+                f"{base_url}/chat/completions",
+                headers=headers,
+                json=payload
+            )
+            print(f"OpenRouter test response: {response.status_code}")
+            print(f"OpenRouter test response text: {response.text}")
+            
+            # بررسی کدهای وضعیت مختلف
+            if response.status_code == 200:
+                return True
+            elif response.status_code == 401:
+                print("OpenRouter 401 error: Authentication failed")
+                return False
+            elif response.status_code == 400:
+                print("OpenRouter 400 error: Bad request")
+                return False
+            elif response.status_code == 429:
+                print("OpenRouter 429 error: Rate limit exceeded")
+                return False
+            else:
+                print(f"OpenRouter unexpected status: {response.status_code}")
+                return False
+                
     except Exception as e:
-        print(f"OpenRouter test exception: {e}")
+        print(f"OpenRouter test failed: {e}")
         return False
 
 

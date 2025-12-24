@@ -1,0 +1,17 @@
+{
+  "name": "5whys-analyzer",
+  "version": "1.0.0",
+  "description": "5 Whys Analysis Tool with Tailwind CSS",
+  "private": true,
+  "scripts": {
+    "build": "postcss static/css/input.css -o static/css/output.css",
+    "build:watch": "postcss static/css/input.css -o static/css/output.css --watch",
+    "dev": "npm run build:watch"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.32",
+    "postcss-cli": "^11.0.0",
+    "tailwindcss": "^3.3.6"
+  }
+}
