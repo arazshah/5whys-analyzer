@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
+    <title>تحلیل 5 چرا | ریشه‌یابی مشکلات</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;700&display=swap');
+        body {     font-family: Vazirmatn, sans-serif; }
+        .step-line { height: 40px; width: 2px; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-2xl">
+        
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-white mb-2">🔍 تحلیل 5 چرا</h1>
+            <p class="text-purple-300">ریشه‌یابی هوشمند مشکلات با کمک هوش مصنوعی</p>
+        </div>
+
+
+        <!-- Problem Input -->
+        <div id="problem-section" class="bg-white/10 backdrop-blur rounded-2xl p-6 mb-6">
+            <h2 class="text-xl font-bold text-white mb-4">📝 مشکل خود را توضیح دهید</h2>
+            <textarea id="problem-input" rows="3" 
+                      placeholder="مثال: سیستم ما هر روز ساعت 3 بعدازظهر کند می‌شود..."
+                      class="w-full px-4 py-3 rounded-lg bg-white/20 text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500"></textarea>
+            <button onclick="startAnalysis()" 
+                    class="mt-4 w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg transition-all transform hover:scale-105">
+                🚀 شروع تحلیل
+            </button>
+        </div>
+
+        <!-- Analysis Section -->
+        <div id="analysis-section" class="hidden">
+            <!-- Steps Container -->
+            <div id="steps-container" class="space-y-4 mb-6"></div>
+
+            <!-- Current Question -->
+            <div id="question-section" class="bg-white/10 backdrop-blur rounded-2xl p-6">
+                <div id="clarification-alert" class="hidden bg-yellow-500/20 border border-yellow-500 rounded-lg p-4 mb-4">
+                    <p class="text-yellow-200" id="clarification-message"></p>
+                </div>
+                
+                <div class="flex items-center gap-3 mb-4">
+                    <span id="step-badge" class="bg-purple-600 text-white px-3 py-1 rounded-full text-sm font-bold">چرا 1</span>
+                    <p id="current-question" class="text-white text-lg"></p>
+                </div>
+                
+                <textarea id="answer-input" rows="2" 
+                          placeholder="پاسخ شما..."
+                          class="w-full px-4 py-3 rounded-lg bg-white/20 text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500"></textarea>
+                
+                <button onclick="submitAnswer()" id="submit-btn"
+                        class="mt-4 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition-all">
+                    ✓ ثبت پاسخ
+                </button>
+            </div>
+        </div>
+
+        <!-- Result Section -->
+        <div id="result-section" class="hidden bg-gradient-to-r from-green-600/20 to-emerald-600/20 backdrop-blur rounded-2xl p-6 border border-green-500/30">
+            <h2 class="text-2xl font-bold text-green-400 mb-4">✅ تحلیل کامل شد!</h2>
+            
+            <div class="mb-6">
+                <h3 class="text-lg font-bold text-white mb-2">🎯 علت ریشه‌ای:</h3>
+                <p id="root-cause" class="text-green-200 bg-green-900/30 p-4 rounded-lg"></p>
+            </div>
+            
+            <div>
+                <h3 class="text-lg font-bold text-white mb-2">💡 پیشنهادات:</h3>
+                <ul id="recommendations" class="space-y-2"></ul>
+            </div>
+            
+            <button onclick="resetAnalysis()" 
+                    class="mt-6 w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg">
+                🔄 تحلیل جدید
+            </button>
+        </div>
+
+        <!-- Loading -->
+        <div id="loading" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div class="bg-white/10 backdrop-blur rounded-2xl p-8 text-center">
+                <div class="animate-spin w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+                <p class="text-white">در حال پردازش...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let sessionId = null;
+        let currentStep = 1;
+
+        function showLoading(show) {
+            document.getElementById('loading').classList.toggle('hidden', !show);
+        }
+
+        async function startAnalysis() {
+            const problem = document.getElementById('problem-input').value.trim();
+            if (problem.length < 10) {
+                alert('لطفاً مشکل را با جزئیات بیشتری توضیح دهید');
+                return;
+            }
+
+            showLoading(true);
+            try {
+                const response = await fetch('/api/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        problem: problem
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail);
+                }
+
+                const data = await response.json();
+                sessionId = data.session_id;
+                currentStep = data.current_step;
+
+                document.getElementById('problem-section').classList.add('hidden');
+                document.getElementById('analysis-section').classList.remove('hidden');
+                
+                showQuestion(data.question, data.current_step);
+                
+            } catch (error) {
+                alert('خطا: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function showQuestion(question, step, clarification = null) {
+            document.getElementById('step-badge').textContent = `چرا ${step}`;
+            document.getElementById('current-question').textContent = question;
+            document.getElementById('answer-input').value = '';
+            
+            const clarificationAlert = document.getElementById('clarification-alert');
+            if (clarification) {
+                document.getElementById('clarification-message').textContent = clarification;
+                clarificationAlert.classList.remove('hidden');
+            } else {
+                clarificationAlert.classList.add('hidden');
+            }
+        }
+
+        function addStepToHistory(step, question, answer) {
+            const container = document.getElementById('steps-container');
+            const stepHtml = `
+                <div class="bg-white/5 rounded-xl p-4">
+                    <div class="flex items-start gap-3">
+                        <span class="bg-purple-600/50 text-white px-2 py-1 rounded text-sm">چرا ${step}</span>
+                        <div class="flex-1">
+                            <p class="text-purple-200 mb-2">${question}</p>
+                            <p class="text-white bg-white/10 rounded p-2">← ${answer}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', stepHtml);
+        }
+
+        async function submitAnswer() {
+            const answer = document.getElementById('answer-input').value.trim();
+            if (answer.length < 3) {
+                alert('لطفاً پاسخ کامل‌تری بدهید');
+                return;
+            }
+
+            const currentQuestion = document.getElementById('current-question').textContent;
+            
+            showLoading(true);
+            try {
+                const response = await fetch('/api/answer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        answer: answer
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail);
+                }
+
+                const data = await response.json();
+
+                // اگر نیاز به توضیح بیشتر است
+                if (data.needs_clarification) {
+                    showQuestion(data.question, data.current_step, data.clarification_message);
+                    return;
+                }
+
+                // اضافه کردن به تاریخچه
+                addStepToHistory(currentStep, currentQuestion, answer);
+
+                // اگر تحلیل کامل شد
+                if (data.root_cause) {
+                    showResult(data);
+                    return;
+                }
+
+                // سوال بعدی
+                currentStep = data.current_step;
+                showQuestion(data.question, data.current_step);
+                
+            } catch (error) {
+                alert('خطا: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function showResult(data) {
+            document.getElementById('question-section').classList.add('hidden');
+            document.getElementById('result-section').classList.remove('hidden');
+            
+            document.getElementById('root-cause').textContent = data.root_cause;
+            
+            const recList = document.getElementById('recommendations');
+            recList.innerHTML = data.recommendations.map(rec => 
+                `<li class="text-green-200 bg-green-900/30 p-3 rounded-lg flex items-start gap-2">
+                    <span>💡</span><span>${rec}</span>
+                </li>`
+            ).join('');
+        }
+
+        function resetAnalysis() {
+            sessionId = null;
+            currentStep = 1;
+            document.getElementById('problem-input').value = '';
+            document.getElementById('steps-container').innerHTML = '';
+            document.getElementById('problem-section').classList.remove('hidden');
+            document.getElementById('analysis-section').classList.add('hidden');
+            document.getElementById('question-section').classList.remove('hidden');
+            document.getElementById('result-section').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
